@@ -48,3 +48,48 @@ Here's what the command does:
 6 - Check if it's running: [http://localhost:9090](http://localhost:9090)
 
 7 - Shutting down and free up the port: `docker kill my-prometheus`
+
+8 - We need to set up docker to expose its metrics. For this, we need to go to /etc/docker/daemon.json and add the following:
+
+```
+{
+  "metrics-addr": "0.0.0.0:9323"
+}
+```
+
+This way, we are exposing the port 9323 of the host, to the prometheus container.
+
+9 - Next we need to change the prometheus.yml to be able to see this metrics path. So, the file will be like this:
+
+```
+global:
+  scrape_interval: 30s
+  evaluation_interval: 25s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: docker
+    static_configs:
+      - targets: ["host.docker.internal:9323"]
+```
+
+We added the host.docker.internal to be accessible from the prometheus container.
+
+10 - Now we can run the container again, passing the host as parameter to make sure that the host's internal IP gets exposed to the prometheus container.
+
+```
+docker run --rm --detach \
+    --name my-prometheus \
+    --publish 9090:9090 \
+    --volume prometheus-volume:/prometheus \
+    --volume "$(pwd)"/prometheus.yml:/etc/prometheus/prometheus.yml \
+    --add-host host.docker.internal:host-gateway \
+    prom/prometheus
+```
+
+11 - Open the prometheus dashboard to check if the target is listed: [http://localhost:9090/targets/](http://localhost:9090/targets/)
+
+![Alt text](image.png)
